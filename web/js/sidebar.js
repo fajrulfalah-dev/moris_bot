@@ -1,11 +1,24 @@
-// Jalankan fungsi setelah seluruh dokumen siap (DOM sudah termuat)
-$(document).ready(function() {  
-    // Event listener untuk tombol dengan ID 'toggleSidebar'
+$(document).ready(function() {
+    // Toggle sidebar
     $('#toggleSidebar').click(function() {
-        // Toggle class 'hidden' pada elemen sidebar untuk menampilkan atau menyembunyikannya
         $('#sidebar').toggleClass('hidden');
-
-        // Toggle class 'expanded' pada konten utama agar menyesuaikan lebar saat sidebar disembunyikan
         $('#content').toggleClass('expanded');
+    });
+
+    // Dropdown functionality
+    $('.dropdown-btn').click(function(e) {
+        e.stopPropagation();
+        $(this).toggleClass('active');
+        $(this).siblings('.dropdown-container').slideToggle(200);
+        
+        // Tutup dropdown lain yang terbuka
+        $('.dropdown-btn').not(this).removeClass('active');
+        $('.dropdown-container').not($(this).siblings('.dropdown-container')).slideUp(200);
+    });
+
+    // Tutup dropdown saat klik di luar
+    $(document).click(function() {
+        $('.dropdown-btn').removeClass('active');
+        $('.dropdown-container').slideUp(200);
     });
 });

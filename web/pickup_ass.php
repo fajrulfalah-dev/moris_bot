@@ -18,19 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdo->beginTransaction();
 
-        // Tentukan status dan progress_order berdasarkan input
-        if ($status === 'Sudah PS' || $status === 'CAINPUL') {
-            $new_status = 'Close';
-            $new_progress = $status;
-        } else {
-            $new_status = 'Pickup';
-            $new_progress = $status;
-        }
+        // Set status langsung ke Close dan progress_order ke Completed
+        $new_status = 'Close';
+        $new_progress = 'Completed'; // Bisa disesuaikan dengan nilai default
 
         // Update status dan progress_order di tabel orders
         $sql_update_order = "
-            UPDATE orders 
-            SET Status = :status, progress_order = :progress_order 
+            UPDATE ass_orders 
+            SET Status = :status, progress_order = :progress_order
             WHERE No_Tiket = :no_tiket
         ";
         $stmt_update_order = $pdo->prepare($sql_update_order);
@@ -42,12 +37,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Catat aktivitas di log_orders
         $sql_insert_log = "
             INSERT INTO log_orders (
-                id_user, order_id, transaksi, Kategori, no_tiket, status, progress_order, keterangan, nama, role, order_by
+                id_user, order_id, transaksi, Kategori, no_tiket, 
+                status, progress_order, keterangan, nama, role, order_by, divisi
             )
             SELECT 
-                :id_user, o.Order_ID, o.Transaksi, o.Kategori, o.No_Tiket, :status, :progress_order, :keterangan, u.Nama, u.role, o.order_by
+                :id_user, o.Order_ID, o.Permintaan, o.Kategori, o.No_Tiket, 
+                :status, :progress_order, :keterangan, u.Nama, u.role, o.order_by, 'assurance'
             FROM 
-                orders o
+                ass_orders o
             LEFT JOIN 
                 users u ON u.ID = :id_user
             WHERE 
@@ -65,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->commit();
         // berikan notifikasi jika sukses
         $_SESSION['message'] = "Order berhasil diupdate.";
-        header("Location: pickup.php"); // Redirect untuk menghindari resubmit form
+        header("Location: pickup_ass.php"); // Redirect untuk menghindari resubmit form
         exit();
 
     } catch (PDOException $e) {
@@ -77,7 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Query untuk mengambil data order
 $transaksi = htmlspecialchars(trim($_GET['transaksi'] ?? ''), ENT_QUOTES, 'UTF-8');
-$kategori = htmlspecialchars(trim($_GET['kategori'] ?? ''), ENT_QUOTES, 'UTF-8');
 $start_date = htmlspecialchars(trim($_GET['start_date'] ?? ''), ENT_QUOTES, 'UTF-8');
 $end_date = htmlspecialchars(trim($_GET['end_date'] ?? ''), ENT_QUOTES, 'UTF-8');
 $order_by = htmlspecialchars(trim($_GET['order_by'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -87,7 +83,7 @@ $query = "
         SELECT
         o.Order_ID AS order_id,
         o.Kategori AS kategori,
-        o.Transaksi AS transaksi,
+        o.Permintaan AS transaksi,
         o.Keterangan AS Keterangan,
         o.No_Tiket AS no_tiket,
         o.id_telegram AS id_telegram,
@@ -97,10 +93,9 @@ $query = "
         o.tanggal AS tanggal,
         o.Status AS status,
         lo.Status AS log_status,
-        o.order_by AS order_by,
-        o.progress_order AS progress
+        o.order_by AS order_by
     FROM
-        orders o
+        ass_orders o
     LEFT JOIN users u ON o.id_telegram = u.id_telegram
     LEFT JOIN (
         SELECT lo1.*
@@ -121,10 +116,7 @@ if ($order_by) {
 }
 
 if ($transaksi) {
-    $query .= " AND o.Transaksi = :transaksi";
-}
-if ($kategori) {
-    $query .= " AND o.Kategori = :kategori";
+    $query .= " AND o.Permintaan = :transaksi";
 }
 if (!empty($start_date) && !empty($end_date)) {
     $query .= " AND o.tanggal BETWEEN :start_date AND :end_date";
@@ -146,9 +138,6 @@ if ($order_by) {
 }
 if ($transaksi) {
     $stmt->bindParam(":transaksi", $transaksi, PDO::PARAM_STR);
-}
-if ($kategori) {
-    $stmt->bindParam(":kategori", $kategori, PDO::PARAM_STR);
 }
 if (!empty($start_date) && !empty($end_date)) {
     $stmt->bindParam(":start_date", $start_date, PDO::PARAM_STR);
@@ -175,10 +164,8 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
-
 <!-- Sidebar navigasi -->
 <div class="sidebar" id="sidebar">
     <h1>MORIS BOT</h1>
@@ -243,7 +230,7 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
         </div>
-        <h1 class="headtitle">Pickup Provisioning</h1>
+        <h1 class="headtitle">Pickup Assurance</h1>
         <!-- seasson jika berhasil pickup maka akan memberi notif -->
         <?php if (isset($_SESSION['message'])): ?>
         <div class="notification" style="margin: 20px 20px 20px 10px;">
@@ -262,28 +249,16 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 <!-- filter by transaksi -->
                 <select aria-label="transaksi" name="transaksi" id="transaksi">
-                    <option value="">All Transaksi</option>
-                    <option value="PDA" <?= ($transaksi === 'PDA') ? 'selected' : '' ?>>PDA</option>
-                    <option value="MO" <?= ($transaksi === 'MO') ? 'selected' : '' ?>>MO</option>
-                    <option value="ORBIT" <?= ($transaksi === 'ORBIT') ? 'selected' : '' ?>>ORBIT</option>
-                    <option value="FFG" <?= ($transaksi === 'FFG') ? 'selected' : '' ?>>FFG</option>
-                    <option value="UNSPEk" <?= ($transaksi === 'UNSPEk') ? 'selected' : '' ?>>UNSPEK</option>
-                    <option value="PSB" <?= ($transaksi === 'PSB') ? 'selected' : '' ?>>PSB</option>
-                    <option value="RO" <?= ($transaksi === 'RO') ? 'selected' : '' ?>>RO</option>
-                    <option value="SO" <?= ($transaksi === 'SO') ? 'selected' : '' ?>>SO</option>
-                    <option value="DO" <?= ($transaksi === 'DO') ? 'selected' : '' ?>>DO</option>
-                </select>
-
-                <!-- filter by kategori -->
-                <select aria-label="kategori" name="kategori" id="kategori">
-                    <option value="">All Kategori</option>
-                    <option value="Indibiz">Indibiz</option>
-                    <option value="Indihome">Indihome</option>
-                    <option value="Wifiid">Wifi.id</option>
-                    <option value="Astinet">Astinet</option>
-                    <option value="Metro">Metro</option>
-                    <option value="VPNIP">VPNIP</option>
-                    <option value="OLO">OLO</option>
+                    <option value="">All Permintaan</option>
+                    <option value="SENDMYI" <?= ($transaksi === 'SENDMYI') ? 'selected' : '' ?>>SEND MYI</option>
+                    <option value="CEKPASSWORDWIFI" <?= ($transaksi === 'CEKPASSWORDWIFI') ? 'selected' : '' ?>>CEK PASSWORD WIFI</option>
+                    <option value="CEKREDAMAN" <?= ($transaksi === 'CEKREDAMAN') ? 'selected' : '' ?>>CEK REDAMAN</option>
+                    <option value="INTERNETERROR" <?= ($transaksi === 'INTERNETERROR') ? 'selected' : '' ?>>INTERNET ERROR</option>
+                    <option value="GANTIONT" <?= ($transaksi === 'GANTIONT') ? 'selected' : '' ?>>GANTI ONT</option>
+                    <option value="GANTISTB" <?= ($transaksi === 'GANTISTB') ? 'selected' : '' ?>>GANTI STB</option>
+                    <option value="OMSET" <?= ($transaksi === 'OMSET') ? 'selected' : '' ?>>OMSET</option>
+                    <option value="VOIPERROR" <?= ($transaksi === 'VOIPERROR') ? 'selected' : '' ?>>VOIP ERROR</option>
+                    <option value="USERERROR" <?= ($transaksi === 'USERERROR') ? 'selected' : '' ?>>USER ERROR</option>
                 </select>
 
                 <!-- filter by date -->
@@ -305,13 +280,12 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <th>No</th>
                         <th>Order ID</th>
                         <th>Kategori</th>
-                        <th>Transaksi</th>
+                        <th>Permintaan</th>
                         <th>Tanggal</th>
                         <th>Keterangan</th>
                         <th>No Tiket</th>
                         <th>Nama</th>
                         <th>Provi</th>
-                        <th>Progress</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -343,7 +317,6 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         <?= htmlspecialchars($order['nama']) ?>
                                     </a>
                                 <td><?= htmlspecialchars($order['Provi']) ?></td>
-                                <td><?= htmlspecialchars($order['progress']) ?></td>
                                 <td>
                                     <!-- memmbuat reply jika close -->
                                     <button onclick="openModal('<?php echo htmlspecialchars($order['no_tiket'], ENT_QUOTES, 'UTF-8'); ?>')">Reply</button>
@@ -369,14 +342,7 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <span class="close" onclick="closeModal()">&times;</span>
             <h2>Masukkan Keterangan</h2>
             <form method="POST">
-                <label for="status">Status:</label>
-                <select name="status" id="status" required>
-                    <option value="" disabled selected>Pilih Status</option>
-                    <option value="Sudah PS">Sudah PS</option>
-                    <option value="CAINPUL">CAINPUL</option>
-                    <option value="On Eskalasi">On Eskalasi</option>
-                </select>
-                <br><br>
+                <input type="hidden" name="status" value="Close"> 
 
                 <label for="keterangan">Keterangan:</label>
                 <textarea name="keterangan" rows="4" cols="50" required></textarea><br><br>

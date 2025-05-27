@@ -11,33 +11,119 @@ body {
 }
 
 /* sidebar  */
+/* Tambahkan di file style.css */
+.dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.dropdown-btn {
+  padding: 15px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dropdown button:hover {
+  background-color: #34495e;
+}
+
+.dropdown-container {
+  display: none;
+  background-color: #2c3e50;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%; /* Muncul di bawah tombol */
+  z-index: 1000;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+}
+
+.dropdown:hover .dropdown-container,
+.dropdown-btn.active + .dropdown-container {
+    display: block;
+}
+
+.dropdown-container a {
+  padding: 12px 15px;
+  color: #fff;
+  text-decoration: none;
+  display: block;
+  transition: background 0.3s;
+  font-size: 14px;
+}
+
+
+.dropdown-container a:hover {
+  background-color: #34495e;
+}
+
+.dropdown-btn::after {
+  content: "▼";
+  font-size: 12px;
+  transition: transform 0.3s;
+}
+
+.dropdown-btn.active::after {
+  transform: rotate(180deg);
+}
+
+.sidebar a:not(.dropdown-container a) {
+  display: block;
+  color: #fff;
+  padding: 15px;
+  text-decoration: none;
+}
+
+
 .sidebar {
-    width: 200px;
-    background: #2c3e50;
-    color: #fff;
-    position: fixed;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    z-index: 3;
-    transition: margin-left 0.3s;
+  width: 200px;
+  background: #2c3e50;
+  color: #fff;
+  position: fixed;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  z-index: 3;
+  transition: margin-left 0.3s;
+  overflow-y: auto; /* Untuk scroll jika konten panjang */
 }
+
 .sidebar.hidden {
-    margin-left: -200px; /* Sembunyikan sidebar */
+  margin-left: -200px;
 }
+
 .sidebar a {
     display: block;
     color: #fff;
     padding: 15px;
     text-decoration: none;
+    font-family: "Poppins";
 }
-.sidebar h1{
-  margin: 0.45rem;
+.sidebar h1 {
+  margin: 0.15rem;
   padding-left: 5px;
+  border-bottom: 1px solid #34495e;
 }
+
 .sidebar a:hover {
     background: #34495e;
 }
+
+.dropdown-btn,
+.dropdown-container a,
+.sidebar h1 {
+  font-family: 'Poppins', sans-serif;
+}
+
+
 
 /* konten */
 .content {
@@ -54,21 +140,28 @@ body {
     background: #34495e;
     color: white;
     padding: 3px;
-    position: sticky;
-    width: 100%;
+    position: fixed;
+    width: calc(100% - 200px);
     top: 0;
+    height: 45px; 
     z-index: 2;
     display: flex;
     align-items: center;
     gap: 0.25rem;
 }
+
+.content.sidebar-hidden {
+  margin-left: 0;
+}
+
+
 .navbar a {
   display: block;
   color: #fff;
   font-size: medium;
   text-decoration: none;
   padding: 10px;
-}
+} 
 .navbar a:hover {
   background: #2c3e50;
 }
@@ -96,6 +189,7 @@ body {
 
 /* judul */
 .headtitle {
+  padding-top: 50px;
   color:#2c3e50;
   margin: 20px 20px 20px 10px;
 

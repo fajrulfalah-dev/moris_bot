@@ -12,7 +12,6 @@ if (!isset($_SESSION['user_id'])) {
 
 // Query untuk mengambil data order
 $transaksi = htmlspecialchars(trim($_GET['transaksi'] ?? ''), ENT_QUOTES, 'UTF-8');
-$kategori = htmlspecialchars(trim($_GET['kategori'] ?? ''), ENT_QUOTES, 'UTF-8');
 $start_date = htmlspecialchars(trim($_GET['start_date'] ?? ''), ENT_QUOTES, 'UTF-8');
 $end_date = htmlspecialchars(trim($_GET['end_date'] ?? ''), ENT_QUOTES, 'UTF-8');
 $order_by = htmlspecialchars(trim($_GET['order_by'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -110,20 +109,53 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
-    <!-- sidebar -->
-    <div class="sidebar" id="sidebar">
-        <h1>MORIS BOT</h1>
-        <a href="dashboard.php">Dashboard</a>
-        <a href="order.php">Order</a>
-        <a href="pickup.php">PickUp</a>
-        <a href="close.php">Close</a>
-        <!-- validasi hanya terlihat di admin -->
-        <?php if ($_SESSION['role'] === 'admin'): ?>
-        <a href="log.php">Log</a>
-        <?php endif; ?>
+<!-- Sidebar navigasi -->
+<div class="sidebar" id="sidebar">
+    <h1>MORIS BOT</h1>
+    <?php if ($_SESSION['role'] === 'admin'): ?>
+    <div class="dropdown">
+        <button class="dropdown-btn">Dashboard</button>
+        <div class="dropdown-container">
+            <a href="dashboard.php">Provisioning</a>
+            <a href="dashboard_ass.php">Assurance</a>
+        </div>
     </div>
+    <?php endif; ?>
+    <?php if ($_SESSION['role'] === 'helpdesk'): ?>
+    <a href="dashboard.php">Dashboard</a>
+    <?php endif; ?>
+    <?php if ($_SESSION['role'] === 'helpdesk'): ?>
+    <a href="dashboard_ass.php">Dashboard</a>
+    <?php endif; ?>
+    
+    <!-- Menu Provisioning -->
+    <div class="dropdown">
+        <button class="dropdown-btn">Provisioning</button>
+        <div class="dropdown-container">
+            <a href="order.php">Order</a>
+            <a href="pickup.php">PickUp</a>
+            <a href="close.php">Close</a>
+            <?php if ($_SESSION['role'] === 'admin'): ?>
+            <a href="log.php">Log</a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <!-- Menu Assurance -->
+    <div class="dropdown">
+        <button class="dropdown-btn">Assurance</button>
+        <div class="dropdown-container">
+            <a href="order_ass.php">Order</a>
+            <a href="pickup_ass.php">PickUp</a>
+            <a href="close_ass.php">Close</a>
+            <?php if ($_SESSION['role'] === 'admin'): ?>
+            <a href="log_ass.php">Log</a>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
 
     <!-- konten -->
     <div class="content" id="content">
@@ -145,7 +177,7 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
         </div>
-        <h1 class="headtitle">Log Menu</h1>
+        <h1 class="headtitle">Log Provisioning</h1>
         <div class="filter">
             <form action="" method="GET">
                 <!-- filter by order -->

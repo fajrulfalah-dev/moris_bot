@@ -20,7 +20,7 @@ $query = "
     SELECT 
         o.Order_ID AS order_id,
         o.Kategori AS kategori,
-        o.Transaksi AS transaksi,
+        o.Permintaan AS transaksi,
         o.Keterangan AS Keterangan,
         o.No_Tiket AS no_tiket,
         o.id_telegram AS id_telegram,
@@ -30,7 +30,7 @@ $query = "
         o.Status AS status,
         o.order_by AS order_by
     FROM 
-        orders o
+        ass_orders o
     LEFT JOIN 
         users u ON o.id_telegram = u.id_telegram
     WHERE 
@@ -44,11 +44,7 @@ if ($order_by) {
 
 // Tambahkan filter jika ada input transaksi
 if ($transaksi) {
-    $query .= " AND o.Transaksi = :transaksi";
-}
-// Tambahkan filter jika ada input kategori
-if ($kategori) {
-    $query .= " AND o.Kategori = :kategori";
+    $query .= " AND o.Permintaan = :transaksi";
 }
 // Tambahkan filter jika ada input date
 if (!empty($start_date) && !empty($end_date)) {
@@ -71,9 +67,6 @@ if ($order_by) {
 }
 if ($transaksi) {
     $stmt->bindParam(":transaksi", $transaksi, PDO::PARAM_STR);
-}
-if ($kategori) {
-    $stmt->bindParam(":kategori", $kategori, PDO::PARAM_STR);
 }
 if (!empty($start_date) && !empty($end_date)) {
     $stmt->bindParam(":start_date", $start_date, PDO::PARAM_STR);
@@ -102,7 +95,6 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
 <!-- Sidebar navigasi -->
@@ -170,7 +162,7 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
         </div>
-        <h1 class="headtitle">Close Provisioning</h1>
+        <h1 class="headtitle">Close Assurance</h1>
         <!-- Filter data -->
         <div class="filter">
             <form action="" method="GET">
@@ -181,28 +173,18 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </select>
 
                 <select aria-label="transaksi" name="transaksi" id="transaksi">
-                    <option value="">All Transaksi</option>
-                    <option value="PDA" <?= ($transaksi === 'PDA') ? 'selected' : '' ?>>PDA</option>
-                    <option value="MO" <?= ($transaksi === 'MO') ? 'selected' : '' ?>>MO</option>
-                    <option value="ORBIT" <?= ($transaksi === 'ORBIT') ? 'selected' : '' ?>>ORBIT</option>
-                    <option value="FFG" <?= ($transaksi === 'FFG') ? 'selected' : '' ?>>FFG</option>
-                    <option value="UNSPEk" <?= ($transaksi === 'UNSPEk') ? 'selected' : '' ?>>UNSPEK</option>
-                    <option value="PSB" <?= ($transaksi === 'PSB') ? 'selected' : '' ?>>PSB</option>
-                    <option value="RO" <?= ($transaksi === 'RO') ? 'selected' : '' ?>>RO</option>
-                    <option value="SO" <?= ($transaksi === 'SO') ? 'selected' : '' ?>>SO</option>
-                    <option value="DO" <?= ($transaksi === 'DO') ? 'selected' : '' ?>>DO</option>
+                    <option value="">All Permintaan</option>
+                    <option value="SENDMYI" <?= ($transaksi === 'SENDMYI') ? 'selected' : '' ?>>SEND MYI</option>
+                    <option value="CEKPASSWORDWIFI" <?= ($transaksi === 'CEKPASSWORDWIFI') ? 'selected' : '' ?>>CEK PASSWORD WIFI</option>
+                    <option value="CEKREDAMAN" <?= ($transaksi === 'CEKREDAMAN') ? 'selected' : '' ?>>CEK REDAMAN</option>
+                    <option value="INTERNETERROR" <?= ($transaksi === 'INTERNETERROR') ? 'selected' : '' ?>>INTERNET ERROR</option>
+                    <option value="GANTIONT" <?= ($transaksi === 'GANTIONT') ? 'selected' : '' ?>>GANTI ONT</option>
+                    <option value="GANTISTB" <?= ($transaksi === 'GANTISTB') ? 'selected' : '' ?>>GANTI STB</option>
+                    <option value="OMSET" <?= ($transaksi === 'OMSET') ? 'selected' : '' ?>>OMSET</option>
+                    <option value="VOIPERROR" <?= ($transaksi === 'VOIPERROR') ? 'selected' : '' ?>>VOIP ERROR</option>
+                    <option value="USERERROR" <?= ($transaksi === 'USERERROR') ? 'selected' : '' ?>>USER ERROR</option>
                 </select>
-
-                <select aria-label="kategori" name="kategori" id="kategori">
-                    <option value="">All Kategori</option>
-                    <option value="Indibiz">Indibiz</option>
-                    <option value="Indihome">Indihome</option>
-                    <option value="Wifiid">Wifi.id</option>
-                    <option value="Astinet">Astinet</option>
-                    <option value="Metro">Metro</option>
-                    <option value="VPNIP">VPNIP</option>
-                    <option value="OLO">OLO</option>
-                </select>
+                
 
                 <!-- <div class="filter_date"> -->
                     <label for="start_date">Date:</label>
@@ -223,7 +205,7 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <th>No</th>
                     <th>Order ID</th>
                     <th>Kategori</th>
-                    <th>Transaksi</th>
+                    <th>Permintaan</th>
                     <th>Tanggal</th>
                     <th>Keterangan</th>
                     <th>No Tiket</th>

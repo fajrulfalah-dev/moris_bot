@@ -24,7 +24,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
 
      // Sanitasi parameter input GET
     $transaksi = htmlspecialchars(trim($_GET['transaksi'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $kategori = htmlspecialchars(trim($_GET['kategori'] ?? ''), ENT_QUOTES, 'UTF-8');
     $start_date = htmlspecialchars(trim($_GET['start_date'] ?? ''), ENT_QUOTES, 'UTF-8');
     $end_date = htmlspecialchars(trim($_GET['end_date'] ?? ''), ENT_QUOTES, 'UTF-8');
     $order_by = htmlspecialchars(trim($_GET['order_by'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -39,9 +38,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($transaksi)) {
         $sql .= " AND transaksi = :transaksi";
     }
-    if (!empty($kategori)) {
-        $sql .= " AND kategori = :kategori";
-    }
     if (!empty($start_date) && !empty($end_date)) {
         $sql .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
     }
@@ -55,9 +51,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($transaksi)) {
         $stmt->bindParam(':transaksi', $transaksi);
-    }
-    if (!empty($kategori)) {
-        $stmt->bindParam(':kategori', $kategori);
     }
     if (!empty($start_date) && !empty($end_date)) {
         $stmt->bindParam(':start_date', $start_date);
@@ -103,9 +96,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($transaksi)) {
         $queryProduktifiti .= " AND lo.transaksi = :transaksi";
     }
-    if (!empty($kategori)) {
-        $queryProduktifiti .= " AND lo.kategori = :kategori";
-    }
     if (!empty($start_date) && !empty($end_date)) {
         $queryProduktifiti .= " AND DATE(lo.tanggal) BETWEEN :start_date AND :end_date";
     }
@@ -124,9 +114,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($transaksi)) {
         $stmtProduktifiti->bindParam(':transaksi', $transaksi);
     }
-    if (!empty($kategori)) {
-        $stmtProduktifiti->bindParam(':kategori', $kategori);
-    }
     if (!empty($start_date) && !empty($end_date)) {
         $stmtProduktifiti->bindParam(':start_date', $start_date);
         $stmtProduktifiti->bindParam(':end_date', $end_date);
@@ -144,9 +131,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($transaksi)) {
         $queryProgress .= " AND transaksi = :transaksi";
     }
-    if (!empty($kategori)) {
-        $queryProgress .= " AND kategori = :kategori";
-    }
     if (!empty($start_date) && !empty($end_date)) {
         $queryProgress .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
     }
@@ -161,9 +145,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($transaksi)) {
         $stmtProgress->bindParam(':transaksi', $transaksi);
-    }
-    if (!empty($kategori)) {
-        $stmtProgress->bindParam(':kategori', $kategori);
     }
     if (!empty($start_date) && !empty($end_date)) {
         $stmtProgress->bindParam(':start_date', $start_date);
@@ -182,9 +163,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($transaksi)) {
         $queryCategory .= " AND transaksi = :transaksi";
     }
-    if (!empty($kategori)) {
-        $queryCategory .= " AND kategori = :kategori";
-    }
     if (!empty($start_date) && !empty($end_date)) {
         $queryCategory .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
     }
@@ -199,9 +177,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($transaksi)) {
         $stmtCategory->bindParam(':transaksi', $transaksi);
-    }
-    if (!empty($kategori)) {
-        $stmtCategory->bindParam(':kategori', $kategori);
     }
     if (!empty($start_date) && !empty($end_date)) {
         $stmtCategory->bindParam(':start_date', $start_date);
@@ -220,9 +195,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($transaksi)) {
         $queryProgressType.= " AND transaksi = :transaksi";
     }
-    if (!empty($kategori)) {
-        $queryProgressType .= " AND kategori = :kategori";
-    }
     if (!empty($start_date) && !empty($end_date)) {
         $queryProgressType .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
     }
@@ -238,9 +210,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($transaksi)) {
         $stmtProgressType ->bindParam(':transaksi', $transaksi);
     }
-    if (!empty($kategori)) {
-        $stmtProgressType ->bindParam(':kategori', $kategori);
-    }
     if (!empty($start_date) && !empty($end_date)) {
         $stmtProgressType ->bindParam(':start_date', $start_date);
         $stmtProgressType ->bindParam(':end_date', $end_date);
@@ -248,21 +217,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
 
     $stmtProgressType->execute();
     $dataProgressType = $stmtProgressType->fetchAll(PDO::FETCH_ASSOC);
-
-    // // Ambil Data untuk progressChart (Order by Tanggal)
-    // $queryProgress = "SELECT tanggal, COUNT(*) as total FROM orders GROUP BY tanggal ORDER BY tanggal";
-    // $stmtProgress = $pdo->query($queryProgress);
-    // $dataProgress = $stmtProgress->fetchAll(PDO::FETCH_ASSOC);
-
-    // // Ambil Data untuk categoryChart (Order by Kategori)
-    // $queryCategory = "SELECT Kategori, COUNT(*) as total FROM orders GROUP BY Kategori";
-    // $stmtCategory = $pdo->query($queryCategory);
-    // $dataCategory = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
-
-    // // Ambil Data untuk progressTypeChart (Order by Progress Status)
-    // $queryProgressType = "SELECT progress_order, COUNT(*) as total FROM orders GROUP BY progress_order";
-    // $stmtProgressType = $pdo->query($queryProgressType);
-    // $dataProgressType = $stmtProgressType->fetchAll(PDO::FETCH_ASSOC);
 
     // menampilkan sisa order
     $querySisaOrder = "SELECT COUNT(*) as sisa_order FROM orders WHERE status = 'Order'";
@@ -272,9 +226,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($transaksi)) {
         $querySisaOrder .= " AND transaksi = :transaksi";
-    }
-    if (!empty($kategori)) {
-        $querySisaOrder .= " AND kategori = :kategori";
     }
     if (!empty($start_date) && !empty($end_date)) {
         $querySisaOrder .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
@@ -287,9 +238,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($transaksi)) {
         $stmtSisaOrder->bindParam(':transaksi', $transaksi);
-    }
-    if (!empty($kategori)) {
-        $stmtSisaOrder->bindParam(':kategori', $kategori);
     }
     if (!empty($start_date) && !empty($end_date)) {
         $stmtSisaOrder->bindParam(':start_date', $start_date);
@@ -306,9 +254,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($transaksi)) {
         $querySisaPickup .= " AND transaksi = :transaksi";
-    }
-    if (!empty($kategori)) {
-        $querySisaPickup .= " AND kategori = :kategori";
     }
     if (!empty($start_date) && !empty($end_date)) {
         $querySisaPickup .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
@@ -369,6 +314,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
+
 <!-- Sidebar navigasi -->
 <div class="sidebar" id="sidebar">
     <h1>MORIS BOT</h1>
@@ -400,7 +346,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
             <?php endif; ?>
         </div>
     </div>
-
     <!-- Menu Assurance -->
     <div class="dropdown">
         <button class="dropdown-btn">Assurance</button>
@@ -435,7 +380,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
             </div>
         </div>
     </div>
-    <h1 class="headtitle">Dashboard Provisioning</h1>
+    <h1 class="headtitle">Dashboard Assurance</h1>
     <!-- Filter -->
     <div class="filter">
         <form action="" id="filterForm" method="GET">
@@ -459,17 +404,18 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
                 <option value="DO">DO</option>
             </select>
 
-            <!-- berdasarkan kategori -->
-            <select aria-label="kategori" name="kategori" id="kategori">
-                <option value="">All Kategori</option>
-                <option value="Indibiz">Indibiz</option>
-                <option value="Indihome">Indihome</option>
-                <option value="Wifiid">Wifi.id</option>
-                <option value="Astinet">Astinet</option>
-                <option value="Metro">Metro</option>
-                <option value="VPNIP">VPNIP</option>
-                <option value="OLO">OLO</option>
-            </select>
+            <select aria-label="transaksi" name="transaksi" id="transaksi">
+                    <option value="">All Permintaan</option>
+                    <option value="SENDMYI" <?= ($transaksi === 'SENDMYI') ? 'selected' : '' ?>>SEND MYI</option>
+                    <option value="CEKPASSWORDWIFI" <?= ($transaksi === 'CEKPASSWORDWIFI') ? 'selected' : '' ?>>CEK PASSWORD WIFI</option>
+                    <option value="CEKREDAMAN" <?= ($transaksi === 'CEKREDAMAN') ? 'selected' : '' ?>>CEK REDAMAN</option>
+                    <option value="INTERNETERROR" <?= ($transaksi === 'INTERNETERROR') ? 'selected' : '' ?>>INTERNET ERROR</option>
+                    <option value="GANTIONT" <?= ($transaksi === 'GANTIONT') ? 'selected' : '' ?>>GANTI ONT</option>
+                    <option value="GANTISTB" <?= ($transaksi === 'GANTISTB') ? 'selected' : '' ?>>GANTI STB</option>
+                    <option value="OMSET" <?= ($transaksi === 'OMSET') ? 'selected' : '' ?>>OMSET</option>
+                    <option value="VOIPERROR" <?= ($transaksi === 'VOIPERROR') ? 'selected' : '' ?>>VOIP ERROR</option>
+                    <option value="USERERROR" <?= ($transaksi === 'USERERROR') ? 'selected' : '' ?>>USER ERROR</option>
+                </select>
 
             <!-- <div class="filter_date"> -->
             <label for="start_date">Date:</label>
@@ -551,7 +497,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
 <script src="./js/sidebar.js"></script>  
 <script src="./js/card.js"></script>
 <script src="./js/profile.js"></script>
-<!-- <script src="./js/navsidebar.js"></script> -->
 
 
 

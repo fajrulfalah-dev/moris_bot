@@ -18,6 +18,12 @@ if ($_SESSION['role'] !== 'admin') {
     exit();
 }
 
+//notifikasi
+if(isset($_SESSION['message'])) {
+  echo '<script>alert('.json_encode($_SESSION['message']).');</script>';
+  unset($_SESSION['message']);
+}
+
 // Ambil regex kategori dari database
 $stmt = $pdo->query("SELECT regex_pattern FROM kategori LIMIT 1");
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -264,7 +270,15 @@ try {
   </style>
 </head>
 <body>
-  <main>
+    <?php if(isset($_SESSION['message'])): ?>
+      <div class="alert alert-<?= (strpos($_SESSION['message'], 'berhasil') !== false) ? 'success' : 'danger' ?> alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000;">
+          <?= $_SESSION['message'] ?>
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+          </button>
+      </div>
+    <?php unset($_SESSION['message']); endif; ?>
+    <main>
     <!-- Container utama --> 
     <section class="container wrapper">
       <!-- Tombol kembali -->
@@ -307,6 +321,7 @@ try {
                     <th>Nama Group</th>
                     <th>Id Group</th>
                     <th>Status</th>
+                    <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -389,6 +404,18 @@ try {
                       `;
                   },
                   width: "100px"
+              },
+              { // Kolom baru untuk hapus
+                  data: null,
+                  render: function(data, type, row) {
+                      return `
+                          <button class="btn btn-sm btn-danger" 
+                                  onclick="deleteGroup(${row.group_id})">
+                              Hapus
+                          </button>
+                      `;
+                  },
+                  width: "100px"
               }
           ],
           columnDefs: [{ targets: '_all', className: 'text-center' }]
@@ -416,6 +443,27 @@ try {
               });
           }
       }
+      window.deleteGroup = function(groupId) {
+        if (confirm('Apakah Anda yakin ingin menghapus grup ini?')) {
+            $.ajax({
+                url: 'delete_group.php',
+                method: 'POST',
+                data: { group_id: groupId },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        groupTable.ajax.reload(null, false);
+                    } else {
+                        alert("Error: " + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    alert("Terjadi kesalahan: " + xhr.responseText);
+                }
+            });
+        }
+    }
   });
   </script>
   <!-- <script src="./js/datatable.js"></script> -->
