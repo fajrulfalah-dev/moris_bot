@@ -103,7 +103,7 @@ function handleUserMessage($user_id, $chat_id, $text, $username, $chat_type, $me
         }
     }elseif ($chat_type === 'group' || $chat_type === 'supergroup') {
         // Hanya cek database jika pesan adalah /moban atau /help
-        if (strpos($text, "/moban") === 0 || $text == "/help") {
+        if (strpos($text, "/moban") === 0 || $text == "/help" || $text == "/cek" || strpos($text, "/bantu") === 0  || $text == "/assurance") {
             //memerikas apakah grup sudah terdaftar di database
             $stmt = $pdo->prepare("SELECT * FROM groups WHERE group_id = ? AND is_active = 1");
             $stmt->execute([$chat_id]);
@@ -122,7 +122,11 @@ function handleUserMessage($user_id, $chat_id, $text, $username, $chat_type, $me
                 sendHelpMessage($chat_id, $message_id);
             } elseif (strpos($text, "/cek") === 0) {
                 handleCekOrder($text, $chat_id, $message_id);
-            }  
+            } elseif (strpos($text, "/bantu") === 0) {
+                handleOrderAssurance($text, $chat_id, $message_id, $user_id, $username);
+            } elseif (strpos($text, "/assurance") === 0) {
+                sendHelpMessageAssurance($chat_id, $message_id) ;
+            }    
         } 
     }
 }
@@ -425,6 +429,152 @@ function sendNotifications() {
         $stmtUpdate = $pdo->prepare("UPDATE log_orders SET is_sent = 1 WHERE no = ?");
         $stmtUpdate->execute([$notification['no']]);
     }
+}
+
+//fungsi menangani perintah /bantu assurance
+function handleOrderAssurance($text, $chat_id, $message_id, $user_id, $username) {
+    global $pdo;
+
+    // [1] REGEX UNTUK PARSE INPUT
+    $pattern = "/^\/bantu #([a-zA-Z0-9_-]+) #([A-Z0-9]+) #(.+)/i";
+    preg_match($pattern, $text, $matches);
+
+    // [2] VALIDASI FORMAT
+    if (count($matches) !== 4) {
+        $message = "Format Order Tidak Valid!\n\n";
+        $message .= "Pastikan formatnya sesuai dengan contoh berikut:\n";
+        $message .= "/bantu #INCIDEN #PERMINTAAN #Keterangan\n\n";
+        $message .= "Contoh:\n";
+        $message .= "/bantu #INC12121 #INTERNETERROR #mohon bantuan internet error\n\n";
+        $message .= "Mohon menggunakan huruf kapital untuk permintaan dan jangan ada spasi \n";
+        $message .= "Untuk informasi lebih lanjut, ketik perintah `/assurance`";
+    
+        replyMessage($chat_id, $message, $message_id);
+        return;
+    }
+
+    // [3] NORMALISASI INPUT
+    $incident = strtoupper(trim($matches[1]));
+    $permintaan = strtoupper(trim($matches[2]));
+    $keterangan = trim($matches[3]);
+
+    // [4] VALIDASI ENUM PERMINTAAN
+    $allowedRequests = ['SENDMYI','CEKPASSWORDWIFI','CEKREDAMAN','INTERNETERROR',
+                        'GANTIONT','GANTISTB','OMSET','VOIPERROR','USERERROR'];
+    if (!in_array($permintaan, $allowedRequests)) {
+        replyMessage($chat_id, "PERMINTAAN TIDAK VALID!\n\nGunakan opsi yang tersedia.", $message_id);
+        return;
+    }
+
+    // [5] VALIDASI USER
+    $stmt = $pdo->prepare("SELECT Nama, role FROM users WHERE ID_Telegram = ?");
+    $stmt->execute([$user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$user) {
+        replyMessage($chat_id, "User tidak terdaftar. Gunakan /daftar di chat private bot.", $message_id);
+        return;
+    }
+    
+    if (!in_array(strtolower($user['role']), ['teknisi', 'plasa'])) {
+        replyMessage($chat_id, "Akses ditolak! Hanya untuk Teknisi/Plasa.", $message_id);
+        return;
+    }
+
+    // [6] GENERATE TIKET & DATA
+    $noTiket = generateTicket();
+    $nama = $user['Nama'];
+    $roleUser = ucfirst($user['role']);
+
+    // [7] CEK DUPLIKASI
+    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM ass_orders WHERE Order_ID = ? OR No_Tiket = ?");
+    $stmtCheck->execute([$incident, $noTiket]);
+    
+    if ($stmtCheck->fetchColumn() > 0) {
+        $stmtGet = $pdo->prepare("SELECT Order_ID, No_Tiket FROM ass_orders WHERE Order_ID = ? OR No_Tiket = ?");
+        $stmtGet->execute([$incident, $noTiket]);
+        $existing = $stmtGet->fetch();
+        
+        replyMessage($chat_id, "Order sudah ada!\nIncident: {$existing['Order_ID']}\nTiket: {$existing['No_Tiket']}", $message_id);
+        return;
+    }
+
+    // [8] PROSES DATABASE
+    try {
+        $pdo->beginTransaction();
+
+        // Insert ke ass_orders
+        $stmtOrder = $pdo->prepare("
+            INSERT INTO ass_orders (
+                Order_ID, Permintaan, Kategori, Keterangan, No_Tiket,
+                Status, progress_order, id_telegram, username_telegram, order_by, group_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmtOrder->execute([
+            $incident,
+            $permintaan,
+            'indihome',         // Kategori tetap
+            $keterangan,
+            $noTiket,
+            'Order',            // Status
+            'On Check',         // Progress
+            $user_id,
+            $username,
+            $roleUser,
+            $chat_id
+        ]);
+
+        // Insert ke order_messages
+        $stmtMessage = $pdo->prepare("
+            INSERT INTO order_messages (no_tiket, message_id, group_id)
+            VALUES (?, ?, ?)
+        ");
+        $stmtMessage->execute([$noTiket, $message_id, $chat_id]);
+
+        $pdo->commit();
+
+        /* [9] RESPON SUKSES - MIRIP handleOrder */
+        replyMessage(
+            $chat_id,
+            "Hallo $nama. Permintaan Anda $incident $permintaan dengan no tiket $noTiket sedang kami check, silahkan tunggu.",
+            $message_id
+        );
+
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        
+        /* [10] RESPON ERROR - MIRIP handleOrder */
+        replyMessage(
+            $chat_id,
+            "Terjadi kesalahan saat menyimpan order. Coba lagi nanti.\n\nError: " . $e->getMessage(),
+            $message_id
+        );
+    }
+}
+
+//fungsi cek format assurance
+function sendHelpMessageAssurance($chat_id, $message_id) {
+    //informasi yang akan ditampilkan
+    $helpMessage = "Panduan Penggunaan Perintah `/bantu`\n\n"
+                . "Gunakan format berikut:\n"
+                . "/moban #INCIDEN #PERMINTAAN #Keterangan\n"
+                . "\nPermintaan:"
+                . "\n- SENDMYI"
+                . "\n- CEKPASSWORDWIFI"
+                . "\n- CEKREDAMAN"
+                . "\n- INTERNETERROR"
+                . "\n- GANTIONT"
+                . "\n- GANTISTB"
+                . "\n- OMSET"
+                . "\n- VOIPERROR"
+                . "\n- USERERROR"
+                . "\n\n Untuk informasi lebih lanjut, hubungi admin.
+                
+                \nPerintah untuk cek status order:\n/cek [Inciden]\nContoh: /cek INC2121313";
+
+    //mengirim jawaban berupa reply
+    replyMessage($chat_id, $helpMessage, $message_id);
 }
 
 //fungsi membuat tiket random
