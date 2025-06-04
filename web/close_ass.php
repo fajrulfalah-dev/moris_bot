@@ -100,6 +100,7 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <!-- Sidebar navigasi -->
 <div class="sidebar" id="sidebar">
     <h1>MORIS BOT</h1>
+    <!-- menu admin -->
     <?php if ($_SESSION['role'] === 'admin'): ?>
     <div class="dropdown">
         <button class="dropdown-btn">Dashboard</button>
@@ -108,26 +109,17 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <a href="dashboard_ass.php">Assurance</a>
         </div>
     </div>
-    <?php endif; ?>
-    <?php if ($_SESSION['role'] === 'helpdesk'): ?>
-    <a href="dashboard.php">Dashboard</a>
-    <?php endif; ?>
-    <?php if ($_SESSION['role'] === 'helpdesk'): ?>
-    <a href="dashboard_ass.php">Dashboard</a>
-    <?php endif; ?>
-    
     <!-- Menu Provisioning -->
     <div class="dropdown">
-        <button class="dropdown-btn">Provisioning</button>
+    <button class="dropdown-btn">Provisioning</button>
         <div class="dropdown-container">
             <a href="order.php">Order</a>
             <a href="pickup.php">PickUp</a>
             <a href="close.php">Close</a>
-            <?php if ($_SESSION['role'] === 'admin'): ?>
             <a href="log.php">Log</a>
-            <?php endif; ?>
         </div>
     </div>
+    
     <!-- Menu Assurance -->
     <div class="dropdown">
         <button class="dropdown-btn">Assurance</button>
@@ -135,12 +127,22 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <a href="order_ass.php">Order</a>
             <a href="pickup_ass.php">PickUp</a>
             <a href="close_ass.php">Close</a>
-            <?php if ($_SESSION['role'] === 'admin'): ?>
             <a href="log_ass.php">Log</a>
-            <?php endif; ?>
         </div>
     </div>
+    <?php endif; ?>
+    
+    <!-- menu helpdesk -->
+    <?php if ($_SESSION['role'] === 'helpdesk' && $_SESSION['divisi'] === 'assurance'): ?>
+        <div>
+            <a href="dashboard_ass.php">Dashboard</a>
+            <a href="order_ass.php">Order</a>
+            <a href="pickup_ass.php">PickUp</a>
+            <a href="close_ass.php">Close</a>
+        </div>
+    <?php endif; ?>
 </div>
+
 
     <div class="content" id="content">
         <!-- Navbar dengan toggle sidebar dan menu profil -->

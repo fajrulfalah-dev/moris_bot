@@ -1,4 +1,6 @@
 <?php
+  // error_reporting(E_ALL);
+  // ini_set('display_errors', 1);
   // Memulai sesi untuk menyimpan data login pengguna
   session_start();
 
@@ -39,9 +41,17 @@
                   $_SESSION['username'] = $user['Username']; 
                   $_SESSION['nama'] = $user['Nama'];
                   $_SESSION['role'] = $user['role'];
+                  $_SESSION['divisi'] = $user['divisi'];
 
                   // Redirect ke dashboard
-                  header("Location: Dashboard.php");
+                  // var_dump($_SESSION);
+                  // header("Location: Dashboard.php");
+                  if ($_SESSION['divisi'] === 'assurance') {
+                    header("Location: dashboard_ass.php");
+                  } else {
+                      // Default: provisioning atau lainnya
+                      header("Location: dashboard.php");
+                  }
                   exit();
               } else {
                   // Password tidak cocok

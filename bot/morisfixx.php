@@ -56,7 +56,7 @@ function handleUserMessage($user_id, $chat_id, $text, $username, $chat_type, $me
             $user = $stmt->fetch();
             //jika id_telegram pengguna sudah terdaftar
             if ($user) {
-                sendMessage($chat_id, "Anda sudah terdaftar sebagai {$user['Role']}.");
+                sendMessage($chat_id, "Anda sudah terdaftar sebagai {$user['role']}.");
             //jika belum. maka..
             } else {
                 // Mulai proses registrasi. id telegram pengguna disimpan ke tabel user_states
@@ -103,7 +103,7 @@ function handleUserMessage($user_id, $chat_id, $text, $username, $chat_type, $me
         }
     }elseif ($chat_type === 'group' || $chat_type === 'supergroup') {
         // Hanya cek database jika pesan adalah /moban atau /help
-        if (strpos($text, "/moban") === 0 || $text == "/help" || $text == "/cek" || strpos($text, "/bantu") === 0  || $text == "/assurance") {
+        if (strpos($text, "/moban") === 0 || $text == "/help" || strpos($text, "/cek") === 0 || strpos($text, "/bantu") === 0  || $text == "/assurance") {
             //memerikas apakah grup sudah terdaftar di database
             $stmt = $pdo->prepare("SELECT * FROM groups WHERE group_id = ? AND is_active = 1");
             $stmt->execute([$chat_id]);
@@ -135,7 +135,7 @@ function handleUserMessage($user_id, $chat_id, $text, $username, $chat_type, $me
 function handleCekOrder($text, $chat_id, $message_id) {
     global $pdo;
 
-    // Cek apakah grup terdaftar dan aktif di database
+    // Cek apakah grup terdaftar dan aktif
     $stmtGroup = $pdo->prepare("SELECT * FROM groups WHERE group_id = ? AND is_active = 1");
     $stmtGroup->execute([$chat_id]);
     $group = $stmtGroup->fetch();
@@ -148,58 +148,105 @@ function handleCekOrder($text, $chat_id, $message_id) {
     // Ekstrak Order_ID dari pesan
     $parts = explode(' ', $text);
     if (count($parts) < 2) {
-        //jika salah format kirim pesan tersebut
         replyMessage($chat_id, "Format salah. Gunakan: /cek [Order_ID]\nContoh: /cek WO123456789", $message_id);
         return;
     }
     
-    //ambil order id dari text
     $orderId = trim($parts[1]);
 
-    // Query database berdarsarkan order_id yang diambil
-    $stmt = $pdo->prepare("
-            SELECT 
-                    o.*,
-                    u.Nama AS pembuat,
-                    lo.nama AS penangani,
-                    lo.status AS log_status
-                FROM orders o
-                LEFT JOIN users u ON o.id_telegram = u.ID_Telegram
-                LEFT JOIN log_orders lo ON lo.no = (
-                    SELECT MAX(no)
-                    FROM log_orders
-                    WHERE no_tiket = o.No_Tiket AND status IN ('Pickup', 'Close')
-                )
-                WHERE o.Order_ID = ?
-            ");
-    
-    $stmt->execute([$orderId]);
-    $order = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Cari order di tabel orders dan ass_orders
+    $order = null;
+    $orderSource = null;
 
-    //jika order tidak ditemukan dalam database
+    // 1. Coba cari di tabel orders
+    $stmtOrders = $pdo->prepare("
+        SELECT 
+            o.*,
+            u.Nama AS pembuat,
+            lo.nama AS penangani,
+            lo.status AS log_status,
+            'orders' AS order_source
+        FROM orders o
+        LEFT JOIN users u ON o.id_telegram = u.ID_Telegram
+        LEFT JOIN log_orders lo ON lo.no = (
+            SELECT MAX(no)
+            FROM log_orders
+            WHERE no_tiket = o.No_Tiket AND status IN ('Pickup', 'Close')
+        )
+        WHERE o.Order_ID = ?
+    ");
+    $stmtOrders->execute([$orderId]);
+    $order = $stmtOrders->fetch(PDO::FETCH_ASSOC);
+    
+    if ($order) {
+        $orderSource = 'orders';
+    } 
+    // 2. Jika tidak ditemukan, cari di ass_orders
+    else {
+        $stmtAssOrders = $pdo->prepare("
+            SELECT 
+                a.*,
+                u.Nama AS pembuat,
+                lo.nama AS penangani,
+                lo.status AS log_status,
+                'ass_orders' AS order_source
+            FROM ass_orders a
+            LEFT JOIN users u ON a.id_telegram = u.ID_Telegram
+            LEFT JOIN log_orders lo ON lo.no = (
+                SELECT MAX(no)
+                FROM log_orders
+                WHERE no_tiket = a.No_Tiket AND status IN ('Pickup', 'Close')
+            )
+            WHERE a.Order_ID = ?
+        ");
+        $stmtAssOrders->execute([$orderId]);
+        $order = $stmtAssOrders->fetch(PDO::FETCH_ASSOC);
+        $orderSource = $order ? 'ass_orders' : null;
+    }
+
+    // Jika order tidak ditemukan di kedua tabel
     if (!$order) {
         replyMessage($chat_id, "Order ID $orderId tidak ditemukan dalam sistem.", $message_id);
         return;
     }
 
-    // Format respons ketika order ditemukan
+    // Format respons berdasarkan sumber order
     $response = "Detail Order\n";
     $response .= "────────────────────\n";
     $response .= "• Order ID: {$order['Order_ID']}\n";
     $response .= "• No Tiket: {$order['No_Tiket']}\n";
-    $response .= "• Kategori: {$order['Kategori']}\n";
-    $response .= "• Transaksi: {$order['Transaksi']}\n";
-    $response .= "• Status: {$order['progress_order']}\n";
-    $response .= "• Dibuat oleh: {$order['pembuat']} (@{$order['username_telegram']})\n";
-    // Tambahkan penangani(Provi) hanya jika status Pickup/Close
-    if(in_array($order['log_status'], ['Pickup', 'Close'])) {
-        $response .= "• Ditangani oleh: {$order['penangani']}\n";
+    
+    // Tampilkan label berbeda untuk ass_orders
+    if ($orderSource === 'ass_orders') {
+        $response .= "• Permintaan: {$order['Permintaan']}\n";
+        $response .= "• Kategori: {$order['Kategori']}\n";
+    } else {
+        $response .= "• Kategori: {$order['Kategori']}\n";
+        $response .= "• Transaksi: {$order['Transaksi']}\n";
     }
-    $response .= "• Tanggal:  {$order['tanggal']}  \n";
-    $response .= "• Keterangan: {$order['Keterangan']}\n";
+    
+    $response .= "• Status: {$order['progress_order']}\n";
+    
+    // Handle username telegram yang mungkin null
+    $username = isset($order['username_telegram']) ? "@".$order['username_telegram'] : "Tidak ada";
+    $response .= "• Dibuat oleh: {$order['pembuat']} ($username)\n";
+    
+    // Tambahkan penangani hanya untuk status tertentu
+    if (isset($order['log_status']) && in_array($order['log_status'], ['Pickup', 'Close'])) {
+        $response .= "• Ditangani oleh: ".($order['penangani'] ?? 'Tidak diketahui')."\n";
+    }
+    
+    $response .= "• Tanggal: {$order['tanggal']}\n";
+    
+    // Handle keterangan yang mungkin null
+    $keterangan = !empty($order['Keterangan']) ? $order['Keterangan'] : "-";
+    $response .= "• Keterangan: $keterangan\n";
+    
+    // Tambahkan info sumber order
+    $response .= "• Sumber: " . ($orderSource === 'ass_orders' ? 'Assigned Order' : 'Regular Order') . "\n";
+    
     $response .= "────────────────────\n";
 
-    //mengirim pesan berupa reply
     replyMessage($chat_id, $response, $message_id);
 }
 
@@ -357,75 +404,109 @@ function replyMessage($chat_id, $message, $reply_to_message_id) {
 function sendNotifications() {
     global $pdo;
 
-    // Ambil notifikasi yang statusnya Pickup atau Close dan belum terkirim (is_sent = 0)
+    // Ambil notifikasi dengan informasi sumber order (orders/ass_orders)
     $stmt = $pdo->query("
-        SELECT lo.*, o.group_id 
+        SELECT 
+            lo.*,
+            COALESCE(
+                (SELECT group_id FROM orders WHERE No_Tiket = lo.No_Tiket LIMIT 1),
+                (SELECT group_id FROM ass_orders WHERE No_Tiket = lo.No_Tiket LIMIT 1)
+            ) AS group_id,
+            CASE 
+                WHEN EXISTS (SELECT 1 FROM orders WHERE No_Tiket = lo.No_Tiket) THEN 'orders'
+                WHEN EXISTS (SELECT 1 FROM ass_orders WHERE No_Tiket = lo.No_Tiket) THEN 'ass_orders'
+                ELSE 'unknown'
+            END AS order_source
         FROM log_orders lo
-        JOIN orders o ON lo.No_Tiket = o.No_Tiket
         WHERE (lo.status = 'Pickup' OR lo.status = 'Close') 
         AND lo.is_sent = 0
     ");
     $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($notifications as $notification) {
-        $chat_id = $notification['group_id']; // Ambil group_id dari order
+        $chat_id = $notification['group_id'];
         $no_tiket = $notification['No_Tiket']; 
         $order_id = $notification['order_id'];
         $transaksi = $notification['transaksi'];
         $status = $notification['status'];
         $progress_order = $notification['progress_order'];
-        $keterangan = !empty($notification['keterangan']) ? $notification['keterangan'] : "-"; // Jika NULL atau kosong, ubah jadi "-"
-        $nama = $notification['nama']; // Nama yang menangani order
-        $order_by = $notification['order_by']; // Teknisi atau Plasa
+        $keterangan = !empty($notification['keterangan']) ? $notification['keterangan'] : "-";
+        $nama = $notification['nama'];
+        $order_by = $notification['order_by'];
+        $order_source = $notification['order_source']; // 'orders' atau 'ass_orders'
 
-        // Cek apakah chat_id valid sebelum lanjut
+        // Validasi chat_id
         if (empty($chat_id) || $chat_id == 0) {
-            error_log("Lewati notifikasi karena tidak ada message_id untuk No Tiket: $no_tiket");
-
-            //  Tetap update is_sent agar tidak diulang di pemanggilan berikutnya
+            error_log("Lewati notifikasi karena group_id tidak valid untuk No Tiket: $no_tiket");
+            
             $stmtUpdate = $pdo->prepare("UPDATE log_orders SET is_sent = 1 WHERE no = ?");
             $stmtUpdate->execute([$notification['no']]);
-
-            continue; // Lewati iterasi ini, tidak kirim pesan
+            continue;
         }
 
-        // Format pesan berdasarkan status
-        if ($status === 'Pickup') {
-            if ($progress_order === 'On Eskalasi') {
-                $message = " Order Pending\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Transaksi: $transaksi\n Progress: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
-            } elseif ($progress_order === 'In Progress') {
-                $message = " Order Proses\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Transaksi: $transaksi\n Progress: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
-            }
-        } elseif ($status === 'Close') {
-            if ($progress_order === 'Cancel') {
-                $message = " Order Cancelled\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Transaksi: $transaksi\n Progress Terakhir: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
-            } elseif (in_array($progress_order, ['Sudah PS', 'CAINPUL'])) {
-                $message = " Order Selesai\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Transaksi: $transaksi\n Progress Terakhir: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
-            }
-        }
+        // Format pesan berdasarkan sumber order
+        $message = "";
         
+        // ===========================
+        // FORMAT UNTUK ORDER BIASA (orders)
+        // ===========================
+        if ($order_source === 'orders') {
+            if ($status === 'Pickup') {
+                if ($progress_order === 'On Eskalasi') {
+                    $message = " Order Pending\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Transaksi: $transaksi\n Progress: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
+                } elseif ($progress_order === 'In Progress') {
+                    $message = " Order Proses\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Transaksi: $transaksi\n Progress: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
+                }
+            } elseif ($status === 'Close') {
+                if ($progress_order === 'Cancel') {
+                    $message = " Order Cancelled\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Transaksi: $transaksi\n Progress Terakhir: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
+                } elseif (in_array($progress_order, ['Sudah PS', 'CAINPUL'])) {
+                    $message = " Order Selesai\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Transaksi: $transaksi\n Progress Terakhir: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
+                }
+            }
+        } 
+        // ===========================
+        // FORMAT UNTUK ASSIGNED ORDER (ass_orders)
+        // ===========================
+        elseif ($order_source === 'ass_orders') {
+            if ($status === 'Pickup' && $progress_order === 'In Progress') {
+                $message = " Order Proses\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Permintaan: $transaksi\n Progress: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
+            } elseif ($status === 'Close') {
+                if ($progress_order === 'Completed') {
+                    $message = " Order Completed\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Permintaan: $transaksi\n Progress: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
+                } elseif ($progress_order === 'Cancel') {
+                    $message = " Order Cancel\n\n No Tiket: $no_tiket\n Order ID: $order_id\n Permintaan: $transaksi\n Progress: $progress_order\n Ditangani oleh: $nama\n Keterangan: $keterangan\n Source: $order_by";
+                }
+            }
+        }
 
-        // Ambil message_id dari order_messages yang sesuai dengan grup
+        // Skip jika format pesan tidak sesuai
+        if (empty($message)) {
+            error_log("Format pesan tidak terdefinisi untuk No Tiket: $no_tiket (Sumber: $order_source, Status: $status, Progress: $progress_order)");
+            $stmtUpdate = $pdo->prepare("UPDATE log_orders SET is_sent = 1 WHERE no = ?");
+            $stmtUpdate->execute([$notification['no']]);
+            continue;
+        }
+
+        // Cari message_id untuk reply
         $stmtMessage = $pdo->prepare("
-        SELECT message_id 
-        FROM order_messages 
-        WHERE no_tiket = ? AND group_id = ?
-        ORDER BY id ASC 
-        LIMIT 1
+            SELECT message_id 
+            FROM order_messages 
+            WHERE no_tiket = ? AND group_id = ?
+            ORDER BY id ASC 
+            LIMIT 1
         ");
         $stmtMessage->execute([$no_tiket, $chat_id]);
         $orderMessage = $stmtMessage->fetch(PDO::FETCH_ASSOC);
 
-
-        // Kirim pesan dengan atau tanpa reply
+        // Kirim notifikasi
         if ($orderMessage) {
             replyMessage($chat_id, $message, $orderMessage['message_id']);
         } else {
-            // Jika tidak ada message_id, lewati pengiriman
             error_log("Lewati notifikasi karena tidak ada message_id untuk No Tiket: $no_tiket");
         }
 
-        // Update status is_sent menjadi 1 agar tidak dikirim ulang
+        // Update status pengiriman
         $stmtUpdate = $pdo->prepare("UPDATE log_orders SET is_sent = 1 WHERE no = ?");
         $stmtUpdate->execute([$notification['no']]);
     }

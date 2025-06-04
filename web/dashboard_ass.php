@@ -4,7 +4,6 @@ session_start();
 // Memuat konfigurasi database  
 require "../config/Database.php";
 
-
 // Validasi otentikasi pengguna
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(["error" => "Unauthorized"]);
@@ -22,24 +21,28 @@ $produktifitiData = [];
 if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     header("Content-Type: application/json");
 
-     // Sanitasi parameter input GET
+    // Sanitasi parameter input GET
+    $order_by = htmlspecialchars(trim($_GET['order_by'] ?? ''), ENT_QUOTES, 'UTF-8');
     $transaksi = htmlspecialchars(trim($_GET['transaksi'] ?? ''), ENT_QUOTES, 'UTF-8');
     $start_date = htmlspecialchars(trim($_GET['start_date'] ?? ''), ENT_QUOTES, 'UTF-8');
     $end_date = htmlspecialchars(trim($_GET['end_date'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $order_by = htmlspecialchars(trim($_GET['order_by'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $progress_order = htmlspecialchars(trim($_GET['progress_order'] ?? ''), ENT_QUOTES, 'UTF-8');
 
     // Query Filter Order Count
-    $sql = "SELECT Status, COUNT(DISTINCT order_id) AS jumlah FROM log_orders WHERE 1=1";
+    $sql = "SELECT Status, COUNT(DISTINCT order_id) AS jumlah FROM log_orders WHERE 1=1 AND divisi = 'assurance'";
 
     // Dynamic query building berdasarkan parameter filter
     if (!empty($order_by)) {
         $sql .= " AND order_by = :order_by";
     }
     if (!empty($transaksi)) {
-        $sql .= " AND transaksi = :transaksi";
+        $sql .= " AND transaksi = :transaksi"; // Ubah transaksi → permintaan
     }
     if (!empty($start_date) && !empty($end_date)) {
         $sql .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
+    }
+    if (!empty($progress_order)) {
+        $sql .= " AND progress_order = :progress_order";
     }
 
     $sql .= " GROUP BY Status";
@@ -56,7 +59,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmt->bindParam(':start_date', $start_date);
         $stmt->bindParam(':end_date', $end_date);
     }
-
+    if (!empty($progress_order)) {
+        $stmt->bindParam(':progress_order', $progress_order);
+    }
+    
     $stmt->execute();
 
     // Mengolah hasil query untuk statistik order
@@ -71,20 +77,21 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     // Query untuk tabel produktifiti dengan filter
     $queryProduktifiti = "SELECT 
                             lo.nama AS Nama, 
-                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'PDA' AND lo.status = 'Close' THEN lo.order_id END) AS PDA,
-                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'MO' AND lo.status = 'Close' THEN lo.order_id END) AS MO,
-                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'ORBIT' AND lo.status = 'Close' THEN lo.order_id END) AS ORBIT,
-                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'FFG' AND lo.status = 'Close' THEN lo.order_id END) AS FFG,
-                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'UNSPEK' AND lo.status = 'Close' THEN lo.order_id END) AS UNSPEK,
-                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'PSB' AND lo.status = 'Close' THEN lo.order_id END) AS PSB,
-                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'RO' AND lo.status = 'Close' THEN lo.order_id END) AS RO,
-                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'SO' AND lo.status = 'Close' THEN lo.order_id END) AS SO,
-                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'DO' AND lo.status = 'Close' THEN lo.order_id END) AS DO,
+                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'SENDMYI' AND lo.status = 'Close' THEN lo.order_id END) AS SENDMYI,
+                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'CEKPASSWORDWIFI' AND lo.status = 'Close' THEN lo.order_id END) AS CEKPASSWORDWIFI,
+                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'CEKREDAMAN' AND lo.status = 'Close' THEN lo.order_id END) AS CEKREDAMAN,
+                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'INTERNETERROR' AND lo.status = 'Close' THEN lo.order_id END) AS INTERNETERROR,
+                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'GANTIONT' AND lo.status = 'Close' THEN lo.order_id END) AS GANTIONT,
+                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'GANTISTB' AND lo.status = 'Close' THEN lo.order_id END) AS GANTISTB,
+                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'OMSET' AND lo.status = 'Close' THEN lo.order_id END) AS OMSET,
+                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'VOIPERROR' AND lo.status = 'Close' THEN lo.order_id END) AS VOIPERROR,
+                            COUNT(DISTINCT CASE WHEN lo.transaksi = 'USERERROR' AND lo.status = 'Close' THEN lo.order_id END) AS USERERROR,
                             COUNT(DISTINCT CASE WHEN lo.status IN ('Close') THEN lo.order_id END) AS RecordCount
                         FROM 
                             log_orders lo
-                        WHERE 
-                            lo.role = 'Helpdesk'";
+                        WHERE 1=1
+                            AND lo.divisi = 'assurance'
+                            AND lo.role = 'Helpdesk'";
 
     // Tambahkan filter jika ada
     if ($userRole === 'helpdesk') {
@@ -94,12 +101,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $queryProduktifiti .= " AND lo.order_by = :order_by";
     }
     if (!empty($transaksi)) {
-        $queryProduktifiti .= " AND lo.transaksi = :transaksi";
+        $queryProduktifiti .= " AND lo.transaksi = :transaksi"; // Ubah transaksi → permintaan
     }
     if (!empty($start_date) && !empty($end_date)) {
         $queryProduktifiti .= " AND DATE(lo.tanggal) BETWEEN :start_date AND :end_date";
     }
-
+    if (!empty($progress_order)) {
+        $queryProduktifiti .= " AND lo.progress_order = :progress_order";
+    }
+    
     // grup by 
     $queryProduktifiti .= " GROUP BY lo.id_user, lo.nama ORDER BY RecordCount DESC";
 
@@ -118,21 +128,27 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmtProduktifiti->bindParam(':start_date', $start_date);
         $stmtProduktifiti->bindParam(':end_date', $end_date);
     }
+    if (!empty($progress_order)) {
+        $stmtProduktifiti->bindParam(':progress_order', $progress_order);
+    }
 
     $stmtProduktifiti->execute();
     $produktifitiData = $stmtProduktifiti->fetchAll(PDO::FETCH_ASSOC);
 
-    // Query untuk progressChart dengan filter
-    $queryProgress = "SELECT tanggal, COUNT(*) as total FROM orders WHERE 1=1";
+    // Query untuk progressChart dengan filter (gunakan ass_orders)
+    $queryProgress = "SELECT tanggal, COUNT(*) as total FROM ass_orders WHERE 1=1 ";
 
     if (!empty($order_by)) {
         $queryProgress .= " AND order_by = :order_by";
     }
     if (!empty($transaksi)) {
-        $queryProgress .= " AND transaksi = :transaksi";
+        $queryProgress .= " AND permintaan = :transaksi"; // Ubah transaksi → permintaan
     }
     if (!empty($start_date) && !empty($end_date)) {
         $queryProgress .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
+    }
+    if (!empty($progress_order)){
+        $queryProgress .= " AND progress_order = :progress_order";
     }
 
     // grup by
@@ -150,53 +166,27 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmtProgress->bindParam(':start_date', $start_date);
         $stmtProgress->bindParam(':end_date', $end_date);
     }
+    if (!empty($progress_order)){
+        $stmtProgress->bindParam(':progress_order', $progress_order);
+    }
 
     $stmtProgress->execute();
     $dataProgress = $stmtProgress->fetchAll(PDO::FETCH_ASSOC);
 
-    // Query untuk categoryChart dengan filter
-    $queryCategory = "SELECT Kategori, COUNT(*) as total FROM orders WHERE 1=1";
-
-    if (!empty($order_by)) {
-        $queryCategory .= " AND order_by = :order_by";
-    }
-    if (!empty($transaksi)) {
-        $queryCategory .= " AND transaksi = :transaksi";
-    }
-    if (!empty($start_date) && !empty($end_date)) {
-        $queryCategory .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
-    }
-
-    // grup by kategori
-    $queryCategory .= " GROUP BY Kategori";
-    $stmtCategory = $pdo->prepare($queryCategory);
-
-    // Bind parameter untuk categoryChart
-    if (!empty($order_by)) {
-        $stmtCategory->bindParam(":order_by", $order_by);
-    }
-    if (!empty($transaksi)) {
-        $stmtCategory->bindParam(':transaksi', $transaksi);
-    }
-    if (!empty($start_date) && !empty($end_date)) {
-        $stmtCategory->bindParam(':start_date', $start_date);
-        $stmtCategory->bindParam(':end_date', $end_date);
-    }
-
-    $stmtCategory->execute();
-    $dataCategory = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
-
-    // Query untuk progressTypeChart dengan filter
-    $queryProgressType = "SELECT progress_order, COUNT(*) as total FROM orders WHERE 1=1";
+    // Query untuk progressTypeChart dengan filter (gunakan ass_orders)
+    $queryProgressType = "SELECT progress_order, COUNT(*) as total FROM ass_orders WHERE 1=1 ";
     
     if (!empty($order_by)) {
         $queryProgressType .= " AND order_by = :order_by";
     }
     if (!empty($transaksi)) {
-        $queryProgressType.= " AND transaksi = :transaksi";
+        $queryProgressType.= " AND permintaan = :transaksi"; // Ubah transaksi → permintaan
     }
     if (!empty($start_date) && !empty($end_date)) {
         $queryProgressType .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
+    }
+    if (!empty($progress_order)){
+        $queryProgressType .= " AND progress_order = :progress_order";
     }
 
     // grup by progess_order
@@ -214,21 +204,27 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmtProgressType ->bindParam(':start_date', $start_date);
         $stmtProgressType ->bindParam(':end_date', $end_date);
     }
+    if (!empty($progress_order)){
+        $stmtProgressType ->bindParam(':progress_order', $progress_order);
+    }
 
     $stmtProgressType->execute();
     $dataProgressType = $stmtProgressType->fetchAll(PDO::FETCH_ASSOC);
 
-    // menampilkan sisa order
-    $querySisaOrder = "SELECT COUNT(*) as sisa_order FROM orders WHERE status = 'Order'";
+    // menampilkan sisa order (gunakan ass_orders)
+    $querySisaOrder = "SELECT COUNT(*) as sisa_order FROM ass_orders WHERE 1 =1 AND status = 'Order'";
 
     if (!empty($order_by)) {
         $querySisaOrder .= " AND order_by = :order_by";
     }
     if (!empty($transaksi)) {
-        $querySisaOrder .= " AND transaksi = :transaksi";
+        $querySisaOrder .= " AND permintaan = :transaksi"; // Ubah transaksi → permintaan
     }
     if (!empty($start_date) && !empty($end_date)) {
         $querySisaOrder .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
+    }
+    if (!empty($progress_order)){
+        $querySisaOrder .= " AND progress_order = :progress_order";
     }
 
     $stmtSisaOrder = $pdo->prepare($querySisaOrder);
@@ -243,20 +239,26 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmtSisaOrder->bindParam(':start_date', $start_date);
         $stmtSisaOrder->bindParam(':end_date', $end_date);
     }
+    if (!empty($progress_order)){
+        $stmtSisaOrder->bindParam(":progress_order", $progress_order);
+    }
 
     $stmtSisaOrder->execute();
     $sisaOrder = $stmtSisaOrder->fetch(PDO::FETCH_ASSOC);
 
-    $querySisaPickup = "SELECT COUNT(*) as sisa_pickup FROM orders WHERE status = 'Pickup'";
+    $querySisaPickup = "SELECT COUNT(*) as sisa_pickup FROM ass_orders WHERE 1=1 AND status = 'Pickup' ";
 
     if (!empty($order_by)) {
         $querySisaPickup .= " AND order_by = :order_by";
     }
     if (!empty($transaksi)) {
-        $querySisaPickup .= " AND transaksi = :transaksi";
+        $querySisaPickup .= " AND permintaan = :transaksi"; // Ubah transaksi → permintaan
     }
     if (!empty($start_date) && !empty($end_date)) {
         $querySisaPickup .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
+    }
+    if (!empty($progress_order)){
+        $querySisaPickup .= " AND progress_order = :progress_order";
     }
 
     $stmtSisaPickup = $pdo->prepare($querySisaPickup);
@@ -267,12 +269,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($transaksi)) {
         $stmtSisaPickup->bindParam(':transaksi', $transaksi);
     }
-    if (!empty($kategori)) {
-        $stmtSisaPickup->bindParam(':kategori', $kategori);
-    }
     if (!empty($start_date) && !empty($end_date)) {
         $stmtSisaPickup->bindParam(':start_date', $start_date);
         $stmtSisaPickup->bindParam(':end_date', $end_date);
+    }
+    if (!empty($progress_order)){
+        $stmtSisaPickup->bindParam(':progress_order', $progress_order);
     }
 
     $stmtSisaPickup->execute();
@@ -285,14 +287,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         "sisa_pickup" => $sisaPickup['sisa_pickup'],
         "produktifitiData" => $produktifitiData,
         "progressChart" => $dataProgress,
-        "categoryChart" => $dataCategory,
         "progressTypeChart" => $dataProgressType
     ]);
 
     exit();
 }
-
-// Jika tidak ada request AJAX, lanjutkan dengan menampilkan halaman biasa
 ?>
 
 <!DOCTYPE html>
@@ -300,24 +299,21 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- <meta http-equiv="refresh" content="60"> -->
     <link rel="stylesheet" href="./style/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
-    <!-- <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> -->
-    <title>Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"> -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>Dashboard Assurance</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
-
 <!-- Sidebar navigasi -->
 <div class="sidebar" id="sidebar">
     <h1>MORIS BOT</h1>
+    <!-- menu admin -->
     <?php if ($_SESSION['role'] === 'admin'): ?>
     <div class="dropdown">
         <button class="dropdown-btn">Dashboard</button>
@@ -326,26 +322,17 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
             <a href="dashboard_ass.php">Assurance</a>
         </div>
     </div>
-    <?php endif; ?>
-    <?php if ($_SESSION['role'] === 'helpdesk'): ?>
-    <a href="dashboard.php">Dashboard</a>
-    <?php endif; ?>
-    <?php if ($_SESSION['role'] === 'helpdesk'): ?>
-    <a href="dashboard_ass.php">Dashboard</a>
-    <?php endif; ?>
-    
     <!-- Menu Provisioning -->
     <div class="dropdown">
-        <button class="dropdown-btn">Provisioning</button>
+    <button class="dropdown-btn">Provisioning</button>
         <div class="dropdown-container">
             <a href="order.php">Order</a>
             <a href="pickup.php">PickUp</a>
             <a href="close.php">Close</a>
-            <?php if ($_SESSION['role'] === 'admin'): ?>
             <a href="log.php">Log</a>
-            <?php endif; ?>
         </div>
     </div>
+    
     <!-- Menu Assurance -->
     <div class="dropdown">
         <button class="dropdown-btn">Assurance</button>
@@ -353,11 +340,20 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
             <a href="order_ass.php">Order</a>
             <a href="pickup_ass.php">PickUp</a>
             <a href="close_ass.php">Close</a>
-            <?php if ($_SESSION['role'] === 'admin'): ?>
             <a href="log_ass.php">Log</a>
-            <?php endif; ?>
         </div>
     </div>
+    <?php endif; ?>
+    
+    <!-- menu helpdesk -->
+    <?php if ($_SESSION['role'] === 'helpdesk' && $_SESSION['divisi'] === 'assurance'): ?>
+        <div>
+            <a href="dashboard_ass.php">Dashboard</a>
+            <a href="order_ass.php">Order</a>
+            <a href="pickup_ass.php">PickUp</a>
+            <a href="close_ass.php">Close</a>
+        </div>
+    <?php endif; ?>
 </div>
 
 <!-- konten utama halaman dashboard -->
@@ -368,7 +364,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         <div class="profile-dropdown">
             <button id="profileButton"><?php echo htmlspecialchars($_SESSION['nama']); ?></button>
             <div class="profile-content" id="profileContent">
-                <!-- hanya admin yang tampil -->
                 <?php if ($_SESSION['role'] === 'admin'): ?>
                 <a href="add_user.php">Tambah User</a>
                 <a href="admin.php">Tools</a>
@@ -390,39 +385,30 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
                 <option value="Plasa" <?= (isset($order_by) && $order_by === 'Plasa') ? 'selected' : '' ?>>PLASA</option>
                 <option value="Teknisi" <?= (isset($order_by) && $order_by === 'Teknisi') ? 'selected' : '' ?>>TEKNISI</option>
             </select>
-            <!-- berdasarkan transaksi -->
+            <!-- berdasarkan permintaan assurance -->
             <select aria-label="transaksi" name="transaksi" id="transaksi">
-                <option value="">All Transaksi</option>
-                <option value="PDA">PDA</option>
-                <option value="MO">MO</option>
-                <option value="ORBIT">ORBIT</option>
-                <option value="FFG">FFG</option>
-                <option value="UNSPEK">UNSPEK</option>
-                <option value="PSB">PSB</option>
-                <option value="RO">RO</option>
-                <option value="SO">SO</option>
-                <option value="DO">DO</option>
+                <option value="">All Permintaan</option>
+                <option value="SENDMYI">SEND MYI</option>
+                <option value="CEKPASSWORDWIFI">CEK PASSWORD WIFI</option>
+                <option value="CEKREDAMAN">CEK REDAMAN</option>
+                <option value="INTERNETERROR">INTERNET ERROR</option>
+                <option value="GANTIONT">GANTI ONT</option>
+                <option value="GANTISTB">GANTI STB</option>
+                <option value="OMSET">OMSET</option>
+                <option value="VOIPERROR">VOIP ERROR</option>
+                <option value="USERERROR">USER ERROR</option>
             </select>
 
-            <select aria-label="transaksi" name="transaksi" id="transaksi">
-                    <option value="">All Permintaan</option>
-                    <option value="SENDMYI" <?= ($transaksi === 'SENDMYI') ? 'selected' : '' ?>>SEND MYI</option>
-                    <option value="CEKPASSWORDWIFI" <?= ($transaksi === 'CEKPASSWORDWIFI') ? 'selected' : '' ?>>CEK PASSWORD WIFI</option>
-                    <option value="CEKREDAMAN" <?= ($transaksi === 'CEKREDAMAN') ? 'selected' : '' ?>>CEK REDAMAN</option>
-                    <option value="INTERNETERROR" <?= ($transaksi === 'INTERNETERROR') ? 'selected' : '' ?>>INTERNET ERROR</option>
-                    <option value="GANTIONT" <?= ($transaksi === 'GANTIONT') ? 'selected' : '' ?>>GANTI ONT</option>
-                    <option value="GANTISTB" <?= ($transaksi === 'GANTISTB') ? 'selected' : '' ?>>GANTI STB</option>
-                    <option value="OMSET" <?= ($transaksi === 'OMSET') ? 'selected' : '' ?>>OMSET</option>
-                    <option value="VOIPERROR" <?= ($transaksi === 'VOIPERROR') ? 'selected' : '' ?>>VOIP ERROR</option>
-                    <option value="USERERROR" <?= ($transaksi === 'USERERROR') ? 'selected' : '' ?>>USER ERROR</option>
-                </select>
-
-            <!-- <div class="filter_date"> -->
             <label for="start_date">Date:</label>
             <input type="date" name="start_date" id="start_date" value="<?= isset($_GET['start_date']) ? htmlspecialchars($_GET['start_date']) : '' ?>">
             <label for="end_date">to:</label>
             <input type="date" name="end_date" id="end_date" value="<?= isset($_GET['end_date']) ? htmlspecialchars($_GET['end_date']) : '' ?>">
-            <!-- </div> -->
+            
+            <select aria-label="progress_order" name="progress_order" id="progress_order">
+                <option value="">All Status</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancel">Cancel</option>
+            </select>
 
             <button type="submit">Filter</button>
         </form>
@@ -448,57 +434,49 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     </div>
     <!-- Tabel dan Grafik -->
     <div class="dashboard-content">
-        <!-- validasi hanya tampil di admin dan Helpdesk -->
         <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'helpdesk'): ?>
             <div class="table-container">
                 <table id="productivityTable" class="display">
-                <!-- <table id="dataTable" class="display" style="width:100%"> -->
                     <thead>
                         <tr>
                             <th>No</th>
                             <th>Nama</th>
-                            <th>PDA</th>
-                            <th>MO</th>
-                            <th>ORBIT</th>
-                            <th>FFG</th>
-                            <th>UNSPEK</th>
-                            <th>PSB</th>
-                            <th>RO</th>
-                            <th>SO</th>
-                            <th>DO</th>
+                            <th>SEND MYI</th>
+                            <th>CEK PW</th>
+                            <th>CEK REDAMAN</th>
+                            <th>INTERNET ERROR</th>
+                            <th>GANTI ONT</th>
+                            <th>GANTI STB</th>
+                            <th>OMSET</th>
+                            <th>VOIP ERROR</th>
+                            <th>USER ERROR</th>
                             <th>Total</th>
                             <th>Log</th>
                         </tr>
                     </thead>
                     <tbody id="table-body">
-                        <tr><td colspan="8">Loading...</td></tr>
+                        <tr><td colspan="12">Loading...</td></tr>
                     </tbody>
                 </table>
-                <?php endif; ?>
-            </div>
-        </div>
-    <!-- Grafik Progress by Tanggal hanya tampil di admin -->
-    <?php if ($_SESSION['role'] === 'admin'): ?>
-    <div class="table-container">
-            <canvas id="progressChart"></canvas>
-    </div>
-    <div class="chart-container">
-            <div class="chart-box">
-                <canvas id="categoryChart"></canvas>
-            </div>
-            <div class="chart-box">
-                <canvas id="progressTypeChart"></canvas>
             </div>
         <?php endif; ?>
     </div>
+    <!-- Grafik hanya untuk admin -->
+    <?php if ($_SESSION['role'] === 'admin'): ?>
+    <div class="table-container">
+        <canvas id="progressChart"></canvas>
+    </div>
+    <div class="chart-container">
+        <div class="chart-box">
+            <canvas id="progressTypeChart"></canvas>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
-<!-- js eksternal -->
 <script src="./js/sidebar.js"></script>  
-<script src="./js/card.js"></script>
+<script src="./js/card_ass.js"></script>
 <script src="./js/profile.js"></script>
-
-
 
 </body>
 </html>

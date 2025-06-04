@@ -28,9 +28,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     $start_date = htmlspecialchars(trim($_GET['start_date'] ?? ''), ENT_QUOTES, 'UTF-8');
     $end_date = htmlspecialchars(trim($_GET['end_date'] ?? ''), ENT_QUOTES, 'UTF-8');
     $order_by = htmlspecialchars(trim($_GET['order_by'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $progress_order = htmlspecialchars(trim($_GET['progress_order'] ?? ''), ENT_QUOTES, 'UTF-8');
 
     // Query Filter Order Count
-    $sql = "SELECT Status, COUNT(DISTINCT order_id) AS jumlah FROM log_orders WHERE 1=1";
+    $sql = "SELECT Status, COUNT(DISTINCT order_id) AS jumlah FROM log_orders WHERE 1=1 AND divisi = 'provisioning'";
 
     // Dynamic query building berdasarkan parameter filter
     if (!empty($order_by)) {
@@ -44,6 +45,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($start_date) && !empty($end_date)) {
         $sql .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
+    }
+    if (!empty($progress_order)) {
+        $sql .= " AND progress_order = :progress_order";
     }
 
     $sql .= " GROUP BY Status";
@@ -63,7 +67,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmt->bindParam(':start_date', $start_date);
         $stmt->bindParam(':end_date', $end_date);
     }
-
+    if (!empty($progress_order)) {
+        $stmt->bindParam(':progress_order', $progress_order); // <-- Tambahkan ini
+    }
+    
     $stmt->execute();
 
     // Mengolah hasil query untuk statistik order
@@ -90,8 +97,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
                             COUNT(DISTINCT CASE WHEN lo.status IN ('Close') THEN lo.order_id END) AS RecordCount
                         FROM 
                             log_orders lo
-                        WHERE 
-                            lo.role = 'Helpdesk'";
+                        WHERE 1=1 
+                        AND lo.divisi = 'provisioning'
+                        AND lo.role = 'Helpdesk'";
 
     // Tambahkan filter jika ada
     if ($userRole === 'helpdesk') {
@@ -109,6 +117,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($start_date) && !empty($end_date)) {
         $queryProduktifiti .= " AND DATE(lo.tanggal) BETWEEN :start_date AND :end_date";
     }
+    if (!empty($progress_order)) {
+        $queryProduktifiti .= " AND lo.progress_order = :progress_order";
+    }
+    
 
     // grup by 
     $queryProduktifiti .= " GROUP BY lo.id_user, lo.nama ORDER BY RecordCount DESC";
@@ -131,6 +143,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmtProduktifiti->bindParam(':start_date', $start_date);
         $stmtProduktifiti->bindParam(':end_date', $end_date);
     }
+    if (!empty($progress_order)) {
+        $stmtProduktifiti->bindParam(':progress_order', $progress_order);
+    }
 
     $stmtProduktifiti->execute();
     $produktifitiData = $stmtProduktifiti->fetchAll(PDO::FETCH_ASSOC);
@@ -149,6 +164,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($start_date) && !empty($end_date)) {
         $queryProgress .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
+    }
+    if (!empty($progress_order)){
+        $queryProgress .= " AND progress_order = :progress_order";
     }
 
     // grup by
@@ -169,6 +187,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmtProgress->bindParam(':start_date', $start_date);
         $stmtProgress->bindParam(':end_date', $end_date);
     }
+    if (!empty($progress_order)){
+        $stmtProgress->bindParam(':progress_order', $progress_order);
+    }
 
     $stmtProgress->execute();
     $dataProgress = $stmtProgress->fetchAll(PDO::FETCH_ASSOC);
@@ -187,6 +208,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($start_date) && !empty($end_date)) {
         $queryCategory .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
+    }
+    if (!empty($progress_order)){
+        $queryCategory .= " AND progress_order = :progress_order";
     }
 
     // grup by kategori
@@ -207,6 +231,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmtCategory->bindParam(':start_date', $start_date);
         $stmtCategory->bindParam(':end_date', $end_date);
     }
+    if (!empty($progress_order)){
+        $stmtCategory->bindParam(':progress_order', $progress_order);
+    }
 
     $stmtCategory->execute();
     $dataCategory = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
@@ -225,6 +252,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     }
     if (!empty($start_date) && !empty($end_date)) {
         $queryProgressType .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
+    }
+    if (!empty($progress_order)){
+        $queryProgressType .= " AND progress_order = :progress_order";
     }
 
     // grup by progess_order
@@ -245,24 +275,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
         $stmtProgressType ->bindParam(':start_date', $start_date);
         $stmtProgressType ->bindParam(':end_date', $end_date);
     }
+    if (!empty($progress_order)){
+        $stmtProgressType ->bindParam(':progress_order', $progress_order);
+    }
 
     $stmtProgressType->execute();
     $dataProgressType = $stmtProgressType->fetchAll(PDO::FETCH_ASSOC);
 
-    // // Ambil Data untuk progressChart (Order by Tanggal)
-    // $queryProgress = "SELECT tanggal, COUNT(*) as total FROM orders GROUP BY tanggal ORDER BY tanggal";
-    // $stmtProgress = $pdo->query($queryProgress);
-    // $dataProgress = $stmtProgress->fetchAll(PDO::FETCH_ASSOC);
-
-    // // Ambil Data untuk categoryChart (Order by Kategori)
-    // $queryCategory = "SELECT Kategori, COUNT(*) as total FROM orders GROUP BY Kategori";
-    // $stmtCategory = $pdo->query($queryCategory);
-    // $dataCategory = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
-
-    // // Ambil Data untuk progressTypeChart (Order by Progress Status)
-    // $queryProgressType = "SELECT progress_order, COUNT(*) as total FROM orders GROUP BY progress_order";
-    // $stmtProgressType = $pdo->query($queryProgressType);
-    // $dataProgressType = $stmtProgressType->fetchAll(PDO::FETCH_ASSOC);
 
     // menampilkan sisa order
     $querySisaOrder = "SELECT COUNT(*) as sisa_order FROM orders WHERE status = 'Order'";
@@ -279,6 +298,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($start_date) && !empty($end_date)) {
         $querySisaOrder .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
     }
+    if (!empty($progress_order)){
+        $querySisaOrder .= " AND progress_order = :progress_order";
+    }
 
     $stmtSisaOrder = $pdo->prepare($querySisaOrder);
 
@@ -294,6 +316,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($start_date) && !empty($end_date)) {
         $stmtSisaOrder->bindParam(':start_date', $start_date);
         $stmtSisaOrder->bindParam(':end_date', $end_date);
+    }
+    if (!empty($progress_order)){
+        $stmtSisaOrder->bindParam(":progress_order", $progress_order);
     }
 
     $stmtSisaOrder->execute();
@@ -313,6 +338,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($start_date) && !empty($end_date)) {
         $querySisaPickup .= " AND DATE(tanggal) BETWEEN :start_date AND :end_date";
     }
+    if (!empty($progress_order)){
+        $querySisaPickup .= " AND progress_order = :progress_order";
+    }
 
     $stmtSisaPickup = $pdo->prepare($querySisaPickup);
 
@@ -328,6 +356,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
     if (!empty($start_date) && !empty($end_date)) {
         $stmtSisaPickup->bindParam(':start_date', $start_date);
         $stmtSisaPickup->bindParam(':end_date', $end_date);
+    }
+    if (!empty($progress_order)){
+        $stmtSisaPickup->bindParam(':progress_order', $progress_order);
     }
 
     $stmtSisaPickup->execute();
@@ -372,6 +403,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
 <!-- Sidebar navigasi -->
 <div class="sidebar" id="sidebar">
     <h1>MORIS BOT</h1>
+    <!-- menu admin -->
     <?php if ($_SESSION['role'] === 'admin'): ?>
     <div class="dropdown">
         <button class="dropdown-btn">Dashboard</button>
@@ -380,27 +412,17 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
             <a href="dashboard_ass.php">Assurance</a>
         </div>
     </div>
-    <?php endif; ?>
-    <?php if ($_SESSION['role'] === 'helpdesk'): ?>
-    <a href="dashboard.php">Dashboard</a>
-    <?php endif; ?>
-    <?php if ($_SESSION['role'] === 'helpdesk'): ?>
-    <a href="dashboard_ass.php">Dashboard</a>
-    <?php endif; ?>
-    
     <!-- Menu Provisioning -->
     <div class="dropdown">
-        <button class="dropdown-btn">Provisioning</button>
+    <button class="dropdown-btn">Provisioning</button>
         <div class="dropdown-container">
             <a href="order.php">Order</a>
             <a href="pickup.php">PickUp</a>
             <a href="close.php">Close</a>
-            <?php if ($_SESSION['role'] === 'admin'): ?>
             <a href="log.php">Log</a>
-            <?php endif; ?>
         </div>
     </div>
-
+    
     <!-- Menu Assurance -->
     <div class="dropdown">
         <button class="dropdown-btn">Assurance</button>
@@ -408,12 +430,22 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
             <a href="order_ass.php">Order</a>
             <a href="pickup_ass.php">PickUp</a>
             <a href="close_ass.php">Close</a>
-            <?php if ($_SESSION['role'] === 'admin'): ?>
             <a href="log_ass.php">Log</a>
-            <?php endif; ?>
         </div>
     </div>
+    <?php endif; ?>
+    
+    <!-- menu helpdesk -->
+    <?php if ($_SESSION['role'] === 'helpdesk' && $_SESSION['divisi'] === 'assurance'): ?>
+        <div>
+            <a href="dashboard_ass.php">Dashboard</a>
+            <a href="order_ass.php">Order</a>
+            <a href="pickup_ass.php">PickUp</a>
+            <a href="close_ass.php">Close</a>
+        </div>
+    <?php endif; ?>
 </div>
+
 
 <!-- konten utama halaman dashboard -->
 <div class="content" id="content">
@@ -477,6 +509,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == "true") {
             <label for="end_date">to:</label>
             <input type="date" name="end_date" id="end_date" value="<?= isset($_GET['end_date']) ? htmlspecialchars($_GET['end_date']) : '' ?>">
             <!-- </div> -->
+            <!-- Tambahan: Filter progress order -->
+            <select aria-label="progress_order" name="progress_order" id="progress_order">
+                <option value="">All Status</option>
+                <option value="Sudah PS">Sudah PS</option>
+                <option value="Cancel">Cancel</option>
+            </select>
+
 
             <button type="submit">Filter</button>
         </form>
